@@ -10,6 +10,17 @@ backend:
       commands:
         - yarn ts-check
         - yarn deploy --branch $AWS_BRANCH --app-id $AWS_APP_ID
+
+frontend:
+  phases:
+    build:
+      commands:
+        - mkdir -p dist
+        - echo "Backend deployment only" > dist/index.html
+  artifacts:
+    baseDirectory: dist
+    files:
+      - '**/*'
   cache:
     paths:
       - node_modules/**/*
