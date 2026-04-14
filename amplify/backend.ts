@@ -41,6 +41,13 @@ userPool.addPropertyOverride('Policies.PasswordPolicy.RequireUppercase', false);
 userPool.addPropertyOverride('Policies.PasswordPolicy.RequireNumbers', false);
 userPool.addPropertyOverride('Policies.PasswordPolicy.RequireSymbols', false);
 
+backend.auth.resources.cfnResources.cfnUserPoolClient.explicitAuthFlows = [
+  'ALLOW_USER_AUTH',
+  'ALLOW_USER_SRP_AUTH',
+  'ALLOW_USER_PASSWORD_AUTH',
+  'ALLOW_REFRESH_TOKEN_AUTH',
+];
+
 // ── Stripe Webhook HTTP endpoint ─────────────────────────────────────────────
 // Stripe needs a plain HTTP POST endpoint — we expose the Lambda via API Gateway.
 const webhookStack = backend.createStack('StripeWebhookStack');
