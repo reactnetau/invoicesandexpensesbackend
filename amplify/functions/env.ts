@@ -1,6 +1,4 @@
 const DEFAULT_APP_URL = 'https://invoicesandexpenses.com';
-const DEFAULT_SES_FROM_EMAIL = 'no-reply@invoicesandexpenses.com';
-
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set`);
@@ -34,7 +32,7 @@ export const env = {
     return requiredEnv('INVOICE_TABLE_NAME');
   },
   get sesFromEmail() {
-    return process.env.SES_FROM_EMAIL ?? DEFAULT_SES_FROM_EMAIL;
+    return requiredEnv('SES_FROM_EMAIL');
   },
   get stripePriceId() {
     return optionalEnv('STRIPE_PRICE_ID');

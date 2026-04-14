@@ -28,6 +28,14 @@ function formatDate(date: Date): string {
   });
 }
 
+function encodeBase64Lines(value: string | Buffer): string {
+  const base64 = Buffer.isBuffer(value)
+    ? value.toString('base64')
+    : Buffer.from(value, 'utf-8').toString('base64');
+
+  return base64.match(/.{1,76}/g)?.join('\r\n') ?? '';
+}
+
 export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<void> {
   const fromEmail = normalizeEmailAddress(env.sesFromEmail);
   const toEmail = normalizeEmailAddress(input.to);
@@ -38,6 +46,16 @@ export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<voi
   const safeInvoiceUrl = escapeHtml(invoiceUrl);
   const safeAmount = escapeHtml(formatAmount(input.amount));
   const safeDueDate = escapeHtml(formatDate(input.dueDate));
+  const textBody = [
+    `Hi ${input.clientName},`,
+    '',
+    'Your invoice is ready. A PDF copy is attached for your records.',
+    `Amount due: ${formatAmount(input.amount)}`,
+    `Due date: ${formatDate(input.dueDate)}`,
+    `View invoice online: ${invoiceUrl}`,
+    '',
+    'If you have any questions, just reply to this email.',
+  ].join('\n');
 
   const htmlBody = `
 <p>Hi ${safeClientName},</p>
@@ -53,27 +71,40 @@ export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<voi
   `.trim();
 
   const boundary = `invoice-${Date.now()}`;
+  const alternativeBoundary = `${boundary}-alt`;
   const filename = `invoice-${input.publicId}.pdf`;
 
   const rawEmail = [
     `From: "${senderName.replace(/["\\]/g, '')}" <${fromEmail}>`,
     `To: ${toEmail}`,
     `Subject: ${subject}`,
+    `Date: ${new Date().toUTCString()}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
     '',
     `--${boundary}`,
+    `Content-Type: multipart/alternative; boundary="${alternativeBoundary}"`,
+    '',
+    `--${alternativeBoundary}`,
+    'Content-Type: text/plain; charset=utf-8',
+    'Content-Transfer-Encoding: base64',
+    '',
+    encodeBase64Lines(textBody),
+    '',
+    `--${alternativeBoundary}`,
     'Content-Type: text/html; charset=utf-8',
     'Content-Transfer-Encoding: base64',
     '',
-    Buffer.from(htmlBody, 'utf-8').toString('base64'),
+    encodeBase64Lines(htmlBody),
+    '',
+    `--${alternativeBoundary}--`,
     '',
     `--${boundary}`,
     `Content-Type: application/pdf; name="${filename}"`,
     `Content-Disposition: attachment; filename="${filename}"`,
     'Content-Transfer-Encoding: base64',
     '',
-    input.pdfBuffer.toString('base64'),
+    encodeBase64Lines(input.pdfBuffer),
     '',
     `--${boundary}--`,
   ].join('\r\n');
