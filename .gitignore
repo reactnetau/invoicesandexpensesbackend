@@ -1,0 +1,11 @@
+node_modules/
+.amplify/
+amplify/.amplify/
+amplify/deployment/
+amplify_outputs.json
+.env
+.env.local
+.env.production
+*.orig.*
+.DS_Store
+npm-debug.*
