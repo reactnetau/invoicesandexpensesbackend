@@ -191,7 +191,13 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
       emailSent = true;
     } catch (err) {
       emailError = err instanceof Error ? err.message : 'Unknown email error';
-      console.error('[createInvoice] Email failed:', emailError);
+      console.error('[createInvoice] Email failed:', {
+        error: emailError,
+        name: err instanceof Error ? err.name : undefined,
+        to: clientEmail,
+        from: env.sesFromEmail,
+        region: env.awsRegion,
+      });
     }
   }
 

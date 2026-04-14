@@ -100,7 +100,13 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
     return { ok: true, error: null };
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
-    console.error('[invoiceEmail]', msg);
+    console.error('[invoiceEmail]', {
+      error: msg,
+      name: err instanceof Error ? err.name : undefined,
+      to: invoice.clientEmail,
+      from: env.sesFromEmail,
+      region: env.awsRegion,
+    });
     return { ok: false, error: msg };
   }
 };

@@ -74,6 +74,8 @@ export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<voi
 
   await ses.send(
     new SendRawEmailCommand({
+      Source: fromEmail,
+      Destinations: [input.to],
       RawMessage: { Data: Buffer.from(rawEmail, 'utf-8') },
     })
   );
