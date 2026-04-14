@@ -3,6 +3,7 @@ import { CfnOutput } from 'aws-cdk-lib';
 import { CfnUserPool } from 'aws-cdk-lib/aws-cognito';
 import { CorsHttpMethod, HttpApi, HttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 import { auth } from './auth/resource';
 import { data } from './data/resource';
@@ -124,6 +125,15 @@ backend.invoiceEmailFn.addEnvironment('INVOICE_TABLE_NAME', tableEnvironment.INV
 backend.invoiceEmailFn.addEnvironment('APP_URL', sharedEnvironment.APP_URL);
 backend.invoiceEmailFn.addEnvironment('ENCRYPTION_KEY', secret('ENCRYPTION_KEY'));
 backend.invoiceEmailFn.addEnvironment('SES_FROM_EMAIL', secret('SES_FROM_EMAIL'));
+
+const sesSendPolicy = new PolicyStatement({
+  effect: Effect.ALLOW,
+  actions: ['ses:SendRawEmail'],
+  resources: ['*'],
+});
+
+backend.createInvoiceFn.resources.lambda.addToRolePolicy(sesSendPolicy);
+backend.invoiceEmailFn.resources.lambda.addToRolePolicy(sesSendPolicy);
 
 backend.csvExportFn.addEnvironment('USER_PROFILE_TABLE_NAME', tableEnvironment.USER_PROFILE_TABLE_NAME);
 backend.csvExportFn.addEnvironment('INVOICE_TABLE_NAME', tableEnvironment.INVOICE_TABLE_NAME);
