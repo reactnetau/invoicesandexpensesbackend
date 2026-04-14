@@ -95,6 +95,19 @@ const sharedEnvironment = {
   APP_URL: appUrl,
 };
 
+function grantIndexQueryAccess(
+  lambda: { addToRolePolicy: (statement: PolicyStatement) => void },
+  tableArns: string[]
+) {
+  lambda.addToRolePolicy(
+    new PolicyStatement({
+      effect: Effect.ALLOW,
+      actions: ['dynamodb:Query'],
+      resources: tableArns.map((tableArn) => `${tableArn}/index/*`),
+    })
+  );
+}
+
 // These functions use the DynamoDB SDK directly, so they need IAM table grants
 // in addition to the AppSync resource authorization in amplify/data/resource.ts.
 tables.UserProfile.grantReadWriteData(backend.createUserProfileFn.resources.lambda);
@@ -117,6 +130,35 @@ tables.Invoice.grantReadData(backend.publicInvoiceFn.resources.lambda);
 
 tables.Expense.grantReadData(backend.csvExportFn.resources.lambda);
 tables.Expense.grantReadData(backend.aiSummaryFn.resources.lambda);
+
+grantIndexQueryAccess(backend.createUserProfileFn.resources.lambda, [tables.UserProfile.tableArn]);
+grantIndexQueryAccess(backend.createInvoiceFn.resources.lambda, [
+  tables.UserProfile.tableArn,
+  tables.Invoice.tableArn,
+]);
+grantIndexQueryAccess(backend.stripeCheckoutFn.resources.lambda, [tables.UserProfile.tableArn]);
+grantIndexQueryAccess(backend.stripePortalFn.resources.lambda, [tables.UserProfile.tableArn]);
+grantIndexQueryAccess(backend.stripeCancelFn.resources.lambda, [tables.UserProfile.tableArn]);
+grantIndexQueryAccess(backend.stripeWebhookFn.resources.lambda, [tables.UserProfile.tableArn]);
+grantIndexQueryAccess(backend.invoiceEmailFn.resources.lambda, [
+  tables.UserProfile.tableArn,
+  tables.Invoice.tableArn,
+]);
+grantIndexQueryAccess(backend.csvExportFn.resources.lambda, [
+  tables.UserProfile.tableArn,
+  tables.Invoice.tableArn,
+  tables.Expense.tableArn,
+]);
+grantIndexQueryAccess(backend.aiSummaryFn.resources.lambda, [
+  tables.UserProfile.tableArn,
+  tables.Invoice.tableArn,
+  tables.Expense.tableArn,
+]);
+grantIndexQueryAccess(backend.publicInvoiceFn.resources.lambda, [
+  tables.UserProfile.tableArn,
+  tables.Invoice.tableArn,
+]);
+grantIndexQueryAccess(backend.payidFn.resources.lambda, [tables.UserProfile.tableArn]);
 
 backend.createUserProfileFn.addEnvironment('USER_PROFILE_TABLE_NAME', tableEnvironment.USER_PROFILE_TABLE_NAME);
 backend.createUserProfileFn.addEnvironment('FOUNDING_MEMBERS', secret('FOUNDING_MEMBERS'));

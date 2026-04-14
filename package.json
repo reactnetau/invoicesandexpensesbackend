@@ -6,7 +6,7 @@
   "scripts": {
     "sandbox": "ampx sandbox --outputs-out-dir ../invoicesandexpensesmobile",
     "deploy": "ampx pipeline-deploy --outputs-out-dir ../invoicesandexpensesmobile",
-    "generate:outputs": "ampx generate outputs --out-dir ../invoicesandexpensesmobile",
+    "generate:outputs": "npx ampx generate outputs --branch main --app-id d2abcyagvq3j4o --out-dir ../invoicesandexpensesmobile",
     "ts-check": "tsc --noEmit"
   },
   "dependencies": {
