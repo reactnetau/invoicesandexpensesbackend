@@ -22,6 +22,7 @@ const schema = a
      */
     UserProfile: a
       .model({
+        owner: a.string(),
         email: a.string().required(),
         stripeCustomerId: a.string(),
         subscriptionStatus: a.string().default('inactive'),
@@ -35,7 +36,10 @@ const schema = a
         address: a.string(),
         abn: a.string(),
       })
-      .secondaryIndexes((index) => [index('stripeCustomerId')])
+      .secondaryIndexes((index) => [
+        index('stripeCustomerId').name('stripeCustomerId-index'),
+        index('owner').name('byOwner'),
+      ])
       .authorization((allow) => [
         allow.owner(),
       ]),
@@ -57,6 +61,7 @@ const schema = a
      */
     Invoice: a
       .model({
+        owner: a.string(),
         clientId: a.id(),
         clientName: a.string().required(),
         clientEmail: a.string(),
@@ -67,17 +72,22 @@ const schema = a
         publicId: a.string().required(),
         isPublic: a.boolean().default(true),
       })
-      .secondaryIndexes((index) => [index('publicId')])
+      .secondaryIndexes((index) => [
+        index('publicId').name('publicId-index'),
+        index('owner').name('byOwner'),
+      ])
       .authorization((allow) => [
         allow.owner(),
       ]),
 
     Expense: a
       .model({
+        owner: a.string(),
         category: a.string().required(),
         amount: a.float().required(),
         date: a.datetime().required(),
       })
+      .secondaryIndexes((index) => [index('owner').name('byOwner')])
       .authorization((allow) => [
         allow.owner(),
       ]),
