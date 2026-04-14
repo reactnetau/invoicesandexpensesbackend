@@ -41,7 +41,12 @@ export const handler: AppSyncResolverHandler<any, any> = async (event) => {
   const sub = (event.identity as any)?.sub as string | undefined;
   if (!sub) return { payid: null, ok: false, error: 'Unauthorized' };
 
-  const fieldName = event.info?.fieldName as string;
+  const fieldName =
+    (event.info?.fieldName as string | undefined) ??
+    ((event as any).fieldName as string | undefined) ??
+    (typeof (event.arguments as { payid?: unknown } | undefined)?.payid === 'string'
+      ? 'updateEncryptedPayid'
+      : 'getDecryptedPayid');
 
   const profileResult = await ddb.send(
     new QueryCommand({
