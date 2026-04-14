@@ -109,7 +109,7 @@ const schema = a
      * Creates an invoice with monthly-limit enforcement for free-tier users.
      * Optionally generates a PDF and emails it to the client (via AWS SES).
      */
-    createInvoice: a
+    issueInvoice: a
       .mutation()
       .arguments({
         clientId: a.string(),
