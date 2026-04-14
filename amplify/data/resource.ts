@@ -2,6 +2,7 @@ import { type ClientSchema, a, defineData } from '@aws-amplify/backend';
 
 import { createUserProfileFn } from '../functions/create-user-profile/resource';
 import { createInvoiceFn } from '../functions/create-invoice/resource';
+import { syncSubscriptionFn } from '../functions/sync-subscription/resource';
 import { stripeCheckoutFn } from '../functions/stripe-checkout/resource';
 import { stripePortalFn } from '../functions/stripe-portal/resource';
 import { stripeCancelFn } from '../functions/stripe-cancel/resource';
@@ -26,6 +27,9 @@ const schema = a
         owner: a.string(),
         email: a.string().required(),
         stripeCustomerId: a.string(),
+        revenueCatAppUserId: a.string(),
+        subscriptionProvider: a.string(),
+        subscriptionProductId: a.string(),
         subscriptionStatus: a.string().default('inactive'),
         subscriptionEndDate: a.datetime(),
         isFoundingMember: a.boolean().default(false),
@@ -147,6 +151,31 @@ const schema = a
         })
       )
       .handler(a.handler.function(createInvoiceFn))
+      .authorization((allow) => [allow.authenticated()]),
+
+    /**
+     * Syncs subscription state from RevenueCat into the user's profile so
+     * backend-gated features (invoice limits, CSV export) remain in sync.
+     */
+    syncSubscriptionState: a
+      .mutation()
+      .arguments({
+        appUserId: a.string(),
+        entitlementIdentifier: a.string().required(),
+        entitlementActive: a.boolean().required(),
+        productIdentifier: a.string(),
+        expirationDate: a.datetime(),
+      })
+      .returns(
+        a.customType({
+          ok: a.boolean(),
+          subscriptionStatus: a.string(),
+          subscriptionEndDate: a.datetime(),
+          isFoundingMember: a.boolean(),
+          error: a.string(),
+        })
+      )
+      .handler(a.handler.function(syncSubscriptionFn))
       .authorization((allow) => [allow.authenticated()]),
 
     /**
@@ -276,6 +305,7 @@ const schema = a
   .authorization((allow) => [
     allow.resource(createUserProfileFn),
     allow.resource(createInvoiceFn),
+    allow.resource(syncSubscriptionFn),
     allow.resource(stripeCheckoutFn),
     allow.resource(stripePortalFn),
     allow.resource(stripeCancelFn),

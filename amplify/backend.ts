@@ -9,6 +9,7 @@ import { auth } from './auth/resource';
 import { data } from './data/resource';
 import { createUserProfileFn } from './functions/create-user-profile/resource';
 import { createInvoiceFn } from './functions/create-invoice/resource';
+import { syncSubscriptionFn } from './functions/sync-subscription/resource';
 import { stripeCheckoutFn } from './functions/stripe-checkout/resource';
 import { stripePortalFn } from './functions/stripe-portal/resource';
 import { stripeCancelFn } from './functions/stripe-cancel/resource';
@@ -24,6 +25,7 @@ const backend = defineBackend({
   data,
   createUserProfileFn,
   createInvoiceFn,
+  syncSubscriptionFn,
   stripeCheckoutFn,
   stripePortalFn,
   stripeCancelFn,
@@ -112,6 +114,7 @@ function grantIndexQueryAccess(
 // in addition to the AppSync resource authorization in amplify/data/resource.ts.
 tables.UserProfile.grantReadWriteData(backend.createUserProfileFn.resources.lambda);
 tables.UserProfile.grantReadData(backend.createInvoiceFn.resources.lambda);
+tables.UserProfile.grantReadWriteData(backend.syncSubscriptionFn.resources.lambda);
 tables.UserProfile.grantReadData(backend.stripeCheckoutFn.resources.lambda);
 tables.UserProfile.grantReadData(backend.stripePortalFn.resources.lambda);
 tables.UserProfile.grantReadData(backend.stripeCancelFn.resources.lambda);
@@ -136,6 +139,7 @@ grantIndexQueryAccess(backend.createInvoiceFn.resources.lambda, [
   tables.UserProfile.tableArn,
   tables.Invoice.tableArn,
 ]);
+grantIndexQueryAccess(backend.syncSubscriptionFn.resources.lambda, [tables.UserProfile.tableArn]);
 grantIndexQueryAccess(backend.stripeCheckoutFn.resources.lambda, [tables.UserProfile.tableArn]);
 grantIndexQueryAccess(backend.stripePortalFn.resources.lambda, [tables.UserProfile.tableArn]);
 grantIndexQueryAccess(backend.stripeCancelFn.resources.lambda, [tables.UserProfile.tableArn]);
@@ -162,6 +166,8 @@ grantIndexQueryAccess(backend.payidFn.resources.lambda, [tables.UserProfile.tabl
 
 backend.createUserProfileFn.addEnvironment('USER_PROFILE_TABLE_NAME', tableEnvironment.USER_PROFILE_TABLE_NAME);
 backend.createUserProfileFn.addEnvironment('FOUNDING_MEMBERS', secret('FOUNDING_MEMBERS'));
+
+backend.syncSubscriptionFn.addEnvironment('USER_PROFILE_TABLE_NAME', tableEnvironment.USER_PROFILE_TABLE_NAME);
 
 backend.createInvoiceFn.addEnvironment('USER_PROFILE_TABLE_NAME', tableEnvironment.USER_PROFILE_TABLE_NAME);
 backend.createInvoiceFn.addEnvironment('INVOICE_TABLE_NAME', tableEnvironment.INVOICE_TABLE_NAME);
