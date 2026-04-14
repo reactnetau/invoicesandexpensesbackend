@@ -18,7 +18,8 @@ const schema = a
     /**
      * UserProfile stores subscription state, business details, and encrypted PayID.
      * Cognito handles identity; this model extends it with app-specific data.
-     * The `owner` field is set automatically to the Cognito user's sub.
+     * The `owner` field stores the Cognito user's sub so backend Lambdas and
+     * client-side model access use the same identifier.
      */
     UserProfile: a
       .model({
@@ -41,7 +42,7 @@ const schema = a
         index('owner').name('byOwner'),
       ])
       .authorization((allow) => [
-        allow.owner(),
+        allow.ownerDefinedIn('owner').identityClaim('sub'),
       ]),
 
     Client: a
