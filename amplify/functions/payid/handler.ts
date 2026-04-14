@@ -68,10 +68,12 @@ export const handler: AppSyncResolverHandler<any, any> = async (event) => {
 
   if (fieldName === 'updateEncryptedPayid') {
     const { payid } = event.arguments as { payid: string };
-    if (!payid) return { ok: false, error: 'payid is required' };
+    const trimmedPayid = payid?.trim();
+    if (!trimmedPayid) return { ok: false, error: 'payid is required' };
+    if (trimmedPayid.length > 180) return { ok: false, error: 'PayID is too long' };
 
     try {
-      const encrypted = encryptPayid(payid.trim());
+      const encrypted = encryptPayid(trimmedPayid);
       await ddb.send(
         new UpdateCommand({
           TableName: USER_PROFILE_TABLE,

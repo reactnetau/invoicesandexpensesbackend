@@ -259,7 +259,6 @@ const schema = a
       .returns(
         a.customType({
           clientName: a.string(),
-          clientEmail: a.string(),
           amount: a.float(),
           status: a.string(),
           dueDate: a.string(),
@@ -293,6 +292,6 @@ export const data = defineData({
   authorizationModes: {
     defaultAuthorizationMode: 'userPool',
     // API key required for unauthenticated getPublicInvoice queries
-    apiKeyAuthorizationMode: { expiresInDays: 365 },
+    apiKeyAuthorizationMode: { expiresInDays: 30 },
   },
 });

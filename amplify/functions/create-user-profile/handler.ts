@@ -8,6 +8,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { randomUUID } from 'crypto';
 import { env } from '../env';
+import { normalizeEmailAddress, sanitizeHeaderValue } from '../security';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const USER_PROFILE_TABLE = env.userProfileTableName;
@@ -29,7 +30,15 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   const sub = (event.identity as any)?.sub as string | undefined;
   if (!sub) return { id: null, isFoundingMember: null, subscriptionStatus: null, error: 'Unauthorized' };
 
-  const { email, currency = 'USD' } = event.arguments;
+  let email: string;
+  try {
+    email = normalizeEmailAddress(event.arguments.email);
+  } catch {
+    return { id: null, isFoundingMember: null, subscriptionStatus: null, error: 'Invalid email address' };
+  }
+
+  const currencyInput = sanitizeHeaderValue(event.arguments.currency, 'USD').toUpperCase();
+  const currency = /^[A-Z]{3}$/.test(currencyInput) ? currencyInput : 'USD';
 
   // Idempotency: return existing profile if already created
   const existing = await ddb.send(

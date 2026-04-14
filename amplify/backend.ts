@@ -98,25 +98,25 @@ const sharedEnvironment = {
 // These functions use the DynamoDB SDK directly, so they need IAM table grants
 // in addition to the AppSync resource authorization in amplify/data/resource.ts.
 tables.UserProfile.grantReadWriteData(backend.createUserProfileFn.resources.lambda);
-tables.UserProfile.grantReadWriteData(backend.createInvoiceFn.resources.lambda);
-tables.UserProfile.grantReadWriteData(backend.stripeCheckoutFn.resources.lambda);
-tables.UserProfile.grantReadWriteData(backend.stripePortalFn.resources.lambda);
-tables.UserProfile.grantReadWriteData(backend.stripeCancelFn.resources.lambda);
+tables.UserProfile.grantReadData(backend.createInvoiceFn.resources.lambda);
+tables.UserProfile.grantReadData(backend.stripeCheckoutFn.resources.lambda);
+tables.UserProfile.grantReadData(backend.stripePortalFn.resources.lambda);
+tables.UserProfile.grantReadData(backend.stripeCancelFn.resources.lambda);
 tables.UserProfile.grantReadWriteData(backend.stripeWebhookFn.resources.lambda);
-tables.UserProfile.grantReadWriteData(backend.invoiceEmailFn.resources.lambda);
-tables.UserProfile.grantReadWriteData(backend.csvExportFn.resources.lambda);
-tables.UserProfile.grantReadWriteData(backend.aiSummaryFn.resources.lambda);
-tables.UserProfile.grantReadWriteData(backend.publicInvoiceFn.resources.lambda);
+tables.UserProfile.grantReadData(backend.invoiceEmailFn.resources.lambda);
+tables.UserProfile.grantReadData(backend.csvExportFn.resources.lambda);
+tables.UserProfile.grantReadData(backend.aiSummaryFn.resources.lambda);
+tables.UserProfile.grantReadData(backend.publicInvoiceFn.resources.lambda);
 tables.UserProfile.grantReadWriteData(backend.payidFn.resources.lambda);
 
 tables.Invoice.grantReadWriteData(backend.createInvoiceFn.resources.lambda);
-tables.Invoice.grantReadWriteData(backend.invoiceEmailFn.resources.lambda);
-tables.Invoice.grantReadWriteData(backend.csvExportFn.resources.lambda);
-tables.Invoice.grantReadWriteData(backend.aiSummaryFn.resources.lambda);
-tables.Invoice.grantReadWriteData(backend.publicInvoiceFn.resources.lambda);
+tables.Invoice.grantReadData(backend.invoiceEmailFn.resources.lambda);
+tables.Invoice.grantReadData(backend.csvExportFn.resources.lambda);
+tables.Invoice.grantReadData(backend.aiSummaryFn.resources.lambda);
+tables.Invoice.grantReadData(backend.publicInvoiceFn.resources.lambda);
 
-tables.Expense.grantReadWriteData(backend.csvExportFn.resources.lambda);
-tables.Expense.grantReadWriteData(backend.aiSummaryFn.resources.lambda);
+tables.Expense.grantReadData(backend.csvExportFn.resources.lambda);
+tables.Expense.grantReadData(backend.aiSummaryFn.resources.lambda);
 
 backend.createUserProfileFn.addEnvironment('USER_PROFILE_TABLE_NAME', tableEnvironment.USER_PROFILE_TABLE_NAME);
 backend.createUserProfileFn.addEnvironment('FOUNDING_MEMBERS', secret('FOUNDING_MEMBERS'));

@@ -13,7 +13,6 @@ interface Args {
 
 interface Result {
   clientName: string | null;
-  clientEmail: string | null;
   amount: number | null;
   status: string | null;
   dueDate: string | null;
@@ -31,7 +30,7 @@ interface Result {
  */
 export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   const { publicId } = event.arguments;
-  if (!publicId) return notFound();
+  if (!publicId || !/^[0-9a-f-]{36}$/i.test(publicId)) return notFound();
 
   // Look up invoice by publicId GSI
   const result = await ddb.send(
@@ -68,7 +67,6 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 
   return {
     clientName: invoice.clientName,
-    clientEmail: invoice.clientEmail ?? null,
     amount: invoice.amount,
     status: invoice.status,
     dueDate: invoice.dueDate,
@@ -82,7 +80,6 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 function notFound(): Result {
   return {
     clientName: null,
-    clientEmail: null,
     amount: null,
     status: null,
     dueDate: null,

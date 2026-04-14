@@ -3,6 +3,7 @@ import {
   SendRawEmailCommand,
 } from '@aws-sdk/client-ses';
 import { env } from '../env';
+import { escapeHtml, normalizeEmailAddress, sanitizeHeaderValue } from '../security';
 
 const ses = new SESClient({ region: env.awsRegion });
 
@@ -28,18 +29,23 @@ function formatDate(date: Date): string {
 }
 
 export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<void> {
-  const fromEmail = env.sesFromEmail;
-  const senderName = input.businessName?.trim() || 'Invoices & Expenses';
+  const fromEmail = normalizeEmailAddress(env.sesFromEmail);
+  const toEmail = normalizeEmailAddress(input.to);
+  const senderName = sanitizeHeaderValue(input.businessName, 'Invoices & Expenses');
   const invoiceUrl = `${input.appUrl}/invoice/${input.publicId}`;
-  const subject = `Invoice from ${senderName} - ${formatAmount(input.amount)}`;
+  const subject = sanitizeHeaderValue(`Invoice from ${senderName} - ${formatAmount(input.amount)}`);
+  const safeClientName = escapeHtml(input.clientName);
+  const safeInvoiceUrl = escapeHtml(invoiceUrl);
+  const safeAmount = escapeHtml(formatAmount(input.amount));
+  const safeDueDate = escapeHtml(formatDate(input.dueDate));
 
   const htmlBody = `
-<p>Hi ${input.clientName},</p>
+<p>Hi ${safeClientName},</p>
 <p>Your invoice is ready. A PDF copy is attached for your records.</p>
-<p><strong>Amount due:</strong> ${formatAmount(input.amount)}</p>
-<p><strong>Due date:</strong> ${formatDate(input.dueDate)}</p>
+<p><strong>Amount due:</strong> ${safeAmount}</p>
+<p><strong>Due date:</strong> ${safeDueDate}</p>
 <p>
-  <a href="${invoiceUrl}" style="display:inline-block;padding:12px 20px;background-color:#2563eb;color:#ffffff;font-weight:bold;text-decoration:none;border-radius:8px;">
+  <a href="${safeInvoiceUrl}" style="display:inline-block;padding:12px 20px;background-color:#2563eb;color:#ffffff;font-weight:bold;text-decoration:none;border-radius:8px;">
     View invoice online
   </a>
 </p>
@@ -50,8 +56,8 @@ export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<voi
   const filename = `invoice-${input.publicId}.pdf`;
 
   const rawEmail = [
-    `From: ${senderName} <${fromEmail}>`,
-    `To: ${input.to}`,
+    `From: "${senderName.replace(/["\\]/g, '')}" <${fromEmail}>`,
+    `To: ${toEmail}`,
     `Subject: ${subject}`,
     'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`,
@@ -75,7 +81,7 @@ export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<voi
   await ses.send(
     new SendRawEmailCommand({
       Source: fromEmail,
-      Destinations: [input.to],
+      Destinations: [toEmail],
       RawMessage: { Data: Buffer.from(rawEmail, 'utf-8') },
     })
   );

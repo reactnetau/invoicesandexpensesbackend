@@ -36,9 +36,12 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
 
   const stripe = new Stripe(stripeKey);
   let stripeEvent: Stripe.Event;
+  const rawBody = event.isBase64Encoded
+    ? Buffer.from(event.body ?? '', 'base64')
+    : event.body ?? '';
 
   try {
-    stripeEvent = stripe.webhooks.constructEvent(event.body ?? '', sig, webhookSecret);
+    stripeEvent = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     console.error('[stripeWebhook] Signature verification failed:', err);
     return { statusCode: 400, body: 'Invalid webhook signature' };

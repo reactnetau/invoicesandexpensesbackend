@@ -10,6 +10,7 @@ import { generateInvoicePdf } from './pdf';
 import { sendInvoiceEmailSES } from './ses';
 import { decrypt } from './crypto';
 import { env } from '../env';
+import { normalizeEmailAddress, sanitizeHeaderValue } from '../security';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const USER_PROFILE_TABLE = env.userProfileTableName;
@@ -46,8 +47,6 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 
   const {
     clientId,
-    clientName,
-    clientEmail,
     amount,
     dueDate,
     sendEmail = false,
@@ -59,11 +58,22 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
     includePayid = false,
   } = event.arguments;
 
-  if (!clientName || !amount || !dueDate) {
+  const safeClientName = sanitizeHeaderValue(event.arguments.clientName).slice(0, 120);
+  let safeClientEmail: string | undefined;
+  try {
+    safeClientEmail = event.arguments.clientEmail?.trim()
+      ? normalizeEmailAddress(event.arguments.clientEmail)
+      : undefined;
+  } catch {
+    return { id: null, publicId: null, emailSent: null, emailError: null, error: 'Enter a valid client email address', errorCode: 'validation' };
+  }
+  const parsedDueDate = new Date(dueDate);
+
+  if (!safeClientName || !Number.isFinite(amount) || amount <= 0 || amount > 100000000 || !dueDate || Number.isNaN(parsedDueDate.getTime())) {
     return { id: null, publicId: null, emailSent: null, emailError: null, error: 'clientName, amount, and dueDate are required', errorCode: 'validation' };
   }
 
-  if (sendEmail && !clientEmail) {
+  if (sendEmail && !safeClientEmail) {
     return { id: null, publicId: null, emailSent: null, emailError: null, error: 'Client does not have an email address', errorCode: 'no_email' };
   }
 
@@ -131,11 +141,11 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
         id,
         owner: sub,
         clientId: clientId ?? null,
-        clientName,
-        clientEmail: clientEmail ?? null,
+        clientName: safeClientName,
+        clientEmail: safeClientEmail ?? null,
         amount,
         status: 'unpaid',
-        dueDate: new Date(dueDate).toISOString(),
+        dueDate: parsedDueDate.toISOString(),
         paidAt: null,
         publicId,
         isPublic: true,
@@ -149,7 +159,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   let emailSent = false;
   let emailError: string | null = null;
 
-  if (sendEmail && clientEmail) {
+  if (sendEmail && safeClientEmail) {
     try {
       let payid: string | null = null;
       if (includePayid && profile.payidEncrypted) {
@@ -162,10 +172,10 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 
       const appUrl = env.appUrl;
       const pdfBuffer = await generateInvoicePdf({
-        clientName,
-        clientEmail: clientEmail ?? null,
+        clientName: safeClientName,
+        clientEmail: safeClientEmail,
         amount,
-        dueDate: new Date(dueDate),
+        dueDate: parsedDueDate,
         publicId,
         status: 'unpaid',
         appUrl,
@@ -178,10 +188,10 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
       });
 
       await sendInvoiceEmailSES({
-        to: clientEmail,
-        clientName,
+        to: safeClientEmail,
+        clientName: safeClientName,
         amount,
-        dueDate: new Date(dueDate),
+        dueDate: parsedDueDate,
         publicId,
         pdfBuffer,
         appUrl,
@@ -194,7 +204,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
       console.error('[createInvoice] Email failed:', {
         error: emailError,
         name: err instanceof Error ? err.name : undefined,
-        to: clientEmail,
+        to: safeClientEmail,
         from: env.sesFromEmail,
         region: env.awsRegion,
       });

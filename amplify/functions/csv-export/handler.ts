@@ -3,6 +3,7 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { getFyDateRange, getFyLabel } from './financialYear';
 import { env } from '../env';
+import { csvCell } from '../security';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const USER_PROFILE_TABLE = env.userProfileTableName;
@@ -82,11 +83,11 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   lines.push('Client Name,Client Email,Amount,Status,Due Date,Paid At,Created At');
   for (const inv of invoices) {
     lines.push([
-      `"${inv.clientName}"`,
-      `"${inv.clientEmail ?? ''}"`,
+      csvCell(inv.clientName),
+      csvCell(inv.clientEmail),
       String(inv.amount),
-      inv.status,
-      inv.dueDate?.split('T')[0] ?? '',
+      csvCell(inv.status),
+      csvCell(inv.dueDate?.split('T')[0]),
       inv.paidAt ? inv.paidAt.split('T')[0] : '',
       inv.createdAt?.split('T')[0] ?? '',
     ].join(','));
@@ -97,9 +98,9 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   lines.push('Category,Amount,Date,Created At');
   for (const exp of expenses) {
     lines.push([
-      `"${exp.category}"`,
+      csvCell(exp.category),
       String(exp.amount),
-      exp.date?.split('T')[0] ?? '',
+      csvCell(exp.date?.split('T')[0]),
       exp.createdAt?.split('T')[0] ?? '',
     ].join(','));
   }
