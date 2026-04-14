@@ -243,7 +243,16 @@ const schema = a
      */
     getAiSummary: a
       .query()
-      .arguments({ fyStart: a.integer() })
+      .arguments({
+        fyStart: a.integer(),
+        question: a.string(),
+        income: a.float(),
+        expenses: a.float(),
+        profit: a.float(),
+        unpaidCount: a.integer(),
+        unpaidTotal: a.float(),
+        currency: a.string(),
+      })
       .returns(
         a.customType({
           summary: a.string(),

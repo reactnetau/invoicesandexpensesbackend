@@ -11,6 +11,13 @@ const EXPENSE_TABLE = env.expenseTableName;
 
 interface Args {
   fyStart?: number;
+  question?: string;
+  income?: number;
+  expenses?: number;
+  profit?: number;
+  unpaidCount?: number;
+  unpaidTotal?: number;
+  currency?: string;
 }
 
 interface Result {
@@ -31,6 +38,9 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   const now = new Date();
   const currentFyStart = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
   const fyStartYear = Number.isInteger(event.arguments.fyStart) ? event.arguments.fyStart! : currentFyStart;
+  const question = typeof event.arguments.question === 'string'
+    ? event.arguments.question.trim().slice(0, 500)
+    : '';
   const startDate = new Date(fyStartYear, 6, 1);
   const endDate = new Date(fyStartYear + 1, 6, 1);
   const fyLabel = `FY ${fyStartYear}/${String(fyStartYear + 1).slice(-2)}`;
@@ -47,7 +57,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
     })
   );
   const profile = profileResult.Items?.[0];
-  const currency = profile?.currency ?? 'USD';
+  const currency = sanitizeCurrency(event.arguments.currency) ?? profile?.currency ?? 'USD';
 
   // Fetch all invoices and expenses in the financial year
   // SECURITY: We aggregate here — raw records are NEVER sent to the AI model
@@ -89,10 +99,16 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   const paidInvoices = invoices.filter((i) => i.status === 'paid');
   const unpaidInvoices = invoices.filter((i) => i.status !== 'paid');
 
-  const income = paidInvoices.reduce((s, i) => s + Number(i.amount), 0);
-  const unpaidTotal = unpaidInvoices.reduce((s, i) => s + Number(i.amount), 0);
-  const expenseTotal = expenseItems.reduce((s, e) => s + Number(e.amount), 0);
-  const profit = income - expenseTotal;
+  const computedIncome = paidInvoices.reduce((s, i) => s + Number(i.amount), 0);
+  const computedUnpaidTotal = unpaidInvoices.reduce((s, i) => s + Number(i.amount), 0);
+  const computedExpenseTotal = expenseItems.reduce((s, e) => s + Number(e.amount), 0);
+  const computedProfit = computedIncome - computedExpenseTotal;
+
+  const income = safeNumber(event.arguments.income) ?? computedIncome;
+  const expenseTotal = safeNumber(event.arguments.expenses) ?? computedExpenseTotal;
+  const unpaidCount = safeInteger(event.arguments.unpaidCount) ?? unpaidInvoices.length;
+  const unpaidTotal = safeNumber(event.arguments.unpaidTotal) ?? computedUnpaidTotal;
+  const profit = safeNumber(event.arguments.profit) ?? income - expenseTotal;
 
   // Only aggregate metrics — no client names, amounts, or raw rows — are sent to AI
   const metrics = {
@@ -101,22 +117,26 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
     income,
     expenses: expenseTotal,
     profit,
-    unpaid_invoices: unpaidInvoices.length,
+    unpaid_invoices: unpaidCount,
     unpaid_total: unpaidTotal,
   };
 
   const apiKey = env.anthropicApiKey;
-  if (!apiKey) return { summary: null, income, expenses: expenseTotal, profit, unpaidCount: unpaidInvoices.length, unpaidTotal, currency, error: 'AI not configured' };
+  if (!apiKey) return { summary: null, income, expenses: expenseTotal, profit, unpaidCount, unpaidTotal, currency, error: 'AI not configured' };
 
   try {
     const client = new Anthropic({ apiKey });
+    const userPrompt = question
+      ? `Answer this question about the aggregate financial year data in 3 short sentences or fewer: "${question}". Do not claim access to individual invoices, clients, or expense rows. If the question cannot be answered from the aggregate metrics, say what is missing. Always format monetary values using the currency code provided (${currency}) — do not use any other currency symbol.\n\n${JSON.stringify(metrics)}`
+      : `You are a helpful financial assistant. Summarise this financial year data in 2 short sentences. Be clear and concise. Always format monetary values using the currency code provided (${currency}) — do not use any other currency symbol.\n\n${JSON.stringify(metrics)}`;
+
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: 120,
+      max_tokens: question ? 180 : 120,
       messages: [
         {
           role: 'user',
-          content: `You are a helpful financial assistant. Summarise this financial year data in 2 short sentences. Be clear and concise. Always format monetary values using the currency code provided (${currency}) — do not use any other currency symbol.\n\n${JSON.stringify(metrics)}`,
+          content: userPrompt,
         },
       ],
     });
@@ -129,7 +149,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
       income,
       expenses: expenseTotal,
       profit,
-      unpaidCount: unpaidInvoices.length,
+      unpaidCount,
       unpaidTotal,
       currency,
       error: null,
@@ -142,7 +162,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
       income,
       expenses: expenseTotal,
       profit,
-      unpaidCount: unpaidInvoices.length,
+      unpaidCount,
       unpaidTotal,
       currency,
       error: msg,
@@ -152,4 +172,20 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 
 function nullResult(error: string): Result {
   return { summary: null, income: null, expenses: null, profit: null, unpaidCount: null, unpaidTotal: null, currency: null, error };
+}
+
+function safeNumber(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return value;
+}
+
+function safeInteger(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) return null;
+  return value;
+}
+
+function sanitizeCurrency(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const currency = value.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(currency) ? currency : null;
 }
