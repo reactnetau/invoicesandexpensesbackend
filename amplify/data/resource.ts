@@ -88,7 +88,7 @@ const schema = a
      * Called immediately after Cognito sign-up to create the UserProfile record.
      * Checks founding member eligibility (first 50 users when FOUNDING_MEMBERS=true).
      */
-    createUserProfile: a
+    initializeUserProfile: a
       .mutation()
       .arguments({
         email: a.string().required(),
