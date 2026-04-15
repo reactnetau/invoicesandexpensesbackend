@@ -245,7 +245,6 @@ const schema = a
       .query()
       .arguments({
         fyStart: a.integer(),
-        question: a.string(),
         income: a.float(),
         expenses: a.float(),
         profit: a.float(),
@@ -265,6 +264,26 @@ const schema = a
           error: a.string(),
         })
       )
+      .handler(a.handler.function(aiSummaryFn))
+      .authorization((allow) => [allow.authenticated()]),
+
+    /**
+     * Answers a custom question about aggregate financial year metrics.
+     * Only aggregate metrics (totals, counts) are sent to Anthropic — never raw rows.
+     */
+    askAi: a
+      .query()
+      .arguments({
+        fyStart: a.integer(),
+        question: a.string().required(),
+        income: a.float(),
+        expenses: a.float(),
+        profit: a.float(),
+        unpaidCount: a.integer(),
+        unpaidTotal: a.float(),
+        currency: a.string(),
+      })
+      .returns(a.customType({ answer: a.string(), error: a.string() }))
       .handler(a.handler.function(aiSummaryFn))
       .authorization((allow) => [allow.authenticated()]),
 

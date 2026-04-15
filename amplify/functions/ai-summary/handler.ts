@@ -21,6 +21,7 @@ interface Args {
 }
 
 interface Result {
+  answer?: string | null;
   summary: string | null;
   income: number | null;
   expenses: number | null;
@@ -34,6 +35,7 @@ interface Result {
 export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   const sub = (event.identity as any)?.sub as string | undefined;
   if (!sub) return nullResult('Unauthorized');
+  const fieldName = event.info?.fieldName;
 
   const now = new Date();
   const currentFyStart = now.getMonth() >= 6 ? now.getFullYear() : now.getFullYear() - 1;
@@ -41,6 +43,9 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   const question = typeof event.arguments.question === 'string'
     ? event.arguments.question.trim().slice(0, 500)
     : '';
+  if (fieldName === 'askAi' && !question) {
+    return { answer: null, summary: null, income: null, expenses: null, profit: null, unpaidCount: null, unpaidTotal: null, currency: null, error: 'Question is required' };
+  }
   const startDate = new Date(fyStartYear, 6, 1);
   const endDate = new Date(fyStartYear + 1, 6, 1);
   const fyLabel = `FY ${fyStartYear}/${String(fyStartYear + 1).slice(-2)}`;
@@ -126,13 +131,13 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 
   try {
     const client = new Anthropic({ apiKey });
-    const userPrompt = question
-      ? `Answer this question about the aggregate financial year data in 3 short sentences or fewer: "${question}". Do not claim access to individual invoices, clients, or expense rows. If the question cannot be answered from the aggregate metrics, say what is missing. Always format monetary values using the currency code provided (${currency}) — do not use any other currency symbol.\n\n${JSON.stringify(metrics)}`
+    const userPrompt = fieldName === 'askAi'
+      ? `You are answering a custom user question about aggregate financial metrics. Directly answer the user's question first, in 3 short sentences or fewer. Do not provide a generic summary unless the question asks for a summary. Do not claim access to individual invoices, clients, or expense rows. If the question cannot be answered from the aggregate metrics, say exactly what is missing. Always format monetary values using the currency code provided (${currency}) — do not use any other currency symbol.\n\nQuestion: ${JSON.stringify(question)}\nAggregate metrics: ${JSON.stringify(metrics)}`
       : `You are a helpful financial assistant. Summarise this financial year data in 2 short sentences. Be clear and concise. Always format monetary values using the currency code provided (${currency}) — do not use any other currency symbol.\n\n${JSON.stringify(metrics)}`;
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: question ? 180 : 120,
+      max_tokens: fieldName === 'askAi' ? 180 : 120,
       messages: [
         {
           role: 'user',
@@ -145,7 +150,8 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
     const summary = block.type === 'text' ? block.text.trim() : '';
 
     return {
-      summary,
+      answer: fieldName === 'askAi' ? summary : null,
+      summary: fieldName === 'askAi' ? null : summary,
       income,
       expenses: expenseTotal,
       profit,
@@ -158,6 +164,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[aiSummary]', msg);
     return {
+      answer: null,
       summary: null,
       income,
       expenses: expenseTotal,
@@ -171,7 +178,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 };
 
 function nullResult(error: string): Result {
-  return { summary: null, income: null, expenses: null, profit: null, unpaidCount: null, unpaidTotal: null, currency: null, error };
+  return { answer: null, summary: null, income: null, expenses: null, profit: null, unpaidCount: null, unpaidTotal: null, currency: null, error };
 }
 
 function safeNumber(value: unknown): number | null {
