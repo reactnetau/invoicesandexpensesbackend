@@ -43,6 +43,8 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   const question = typeof event.arguments.question === 'string'
     ? event.arguments.question.trim().slice(0, 500)
     : '';
+  const isAskAi = fieldName === 'askAi' || question.length > 0;
+
   if (fieldName === 'askAi' && !question) {
     return { answer: null, summary: null, income: null, expenses: null, profit: null, unpaidCount: null, unpaidTotal: null, currency: null, error: 'Question is required' };
   }
@@ -131,13 +133,13 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 
   try {
     const client = new Anthropic({ apiKey });
-    const userPrompt = fieldName === 'askAi'
+    const userPrompt = isAskAi
       ? `You are answering a custom user question about aggregate financial metrics. Directly answer the user's question first, in 3 short sentences or fewer. Do not provide a generic summary unless the question asks for a summary. Do not claim access to individual invoices, clients, or expense rows. If the question cannot be answered from the aggregate metrics, say exactly what is missing. Always format monetary values using the currency code provided (${currency}) — do not use any other currency symbol.\n\nQuestion: ${JSON.stringify(question)}\nAggregate metrics: ${JSON.stringify(metrics)}`
       : `You are a helpful financial assistant. Summarise this financial year data in 2 short sentences. Be clear and concise. Always format monetary values using the currency code provided (${currency}) — do not use any other currency symbol.\n\n${JSON.stringify(metrics)}`;
 
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
-      max_tokens: fieldName === 'askAi' ? 180 : 120,
+      max_tokens: isAskAi ? 180 : 120,
       messages: [
         {
           role: 'user',
@@ -148,10 +150,23 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 
     const block = response.content[0];
     const summary = block.type === 'text' ? block.text.trim() : '';
+    if (!summary) {
+      return {
+        answer: null,
+        summary: null,
+        income,
+        expenses: expenseTotal,
+        profit,
+        unpaidCount,
+        unpaidTotal,
+        currency,
+        error: 'AI returned an empty response',
+      };
+    }
 
     return {
-      answer: fieldName === 'askAi' ? summary : null,
-      summary: fieldName === 'askAi' ? null : summary,
+      answer: isAskAi ? summary : null,
+      summary: isAskAi ? null : summary,
       income,
       expenses: expenseTotal,
       profit,
