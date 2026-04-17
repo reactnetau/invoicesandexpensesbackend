@@ -8,6 +8,7 @@ export interface InvoicePdfInput {
   publicId: string;
   status: string;
   appUrl: string;
+  currency?: string | null;
   payid?: string | null;
   businessName?: string | null;
   fullName?: string | null;
@@ -16,8 +17,8 @@ export interface InvoicePdfInput {
   abn?: string | null;
 }
 
-function formatAmount(amount: number): string {
-  return new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'USD' }).format(amount);
+function formatAmount(amount: number, currency = 'AUD'): string {
+  return new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(amount);
 }
 
 function formatDate(date: Date): string {
@@ -80,7 +81,7 @@ export async function generateInvoicePdf(input: InvoicePdfInput): Promise<Buffer
     detailY -= 16;
   }
 
-  page.drawText(`Amount due: ${formatAmount(input.amount)}`, {
+  page.drawText(`Amount due: ${formatAmount(input.amount, input.currency ?? 'AUD')}`, {
     x: 48,
     y: height - 190,
     size: 22,

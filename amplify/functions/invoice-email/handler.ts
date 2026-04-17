@@ -78,6 +78,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
       publicId: invoice.publicId,
       status: invoice.status,
       appUrl,
+      currency: profile.currency ?? 'AUD',
       payid,
       businessName: includeBusinessName ? (profile.businessName ?? null) : null,
       fullName: includeFullName ? (profile.fullName ?? null) : null,
@@ -94,6 +95,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
       publicId: invoice.publicId,
       pdfBuffer,
       appUrl,
+      currency: profile.currency ?? 'AUD',
       businessName: profile.businessName ?? null,
     });
 

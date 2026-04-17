@@ -15,11 +15,12 @@ interface InvoiceEmailInput {
   publicId: string;
   pdfBuffer: Buffer;
   appUrl: string;
+  currency?: string | null;
   businessName?: string | null;
 }
 
-function formatAmount(amount: number): string {
-  return new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'USD' }).format(amount);
+function formatAmount(amount: number, currency = 'AUD'): string {
+  return new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(amount);
 }
 
 function formatDate(date: Date): string {
@@ -41,16 +42,17 @@ export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<voi
   const toEmail = normalizeEmailAddress(input.to);
   const senderName = sanitizeHeaderValue(input.businessName, 'Invoices & Expenses');
   const invoiceUrl = `${input.appUrl}/invoice/${input.publicId}`;
-  const subject = sanitizeHeaderValue(`Invoice from ${senderName} - ${formatAmount(input.amount)}`);
+  const currency = input.currency ?? 'AUD';
+  const subject = sanitizeHeaderValue(`Invoice from ${senderName} - ${formatAmount(input.amount, currency)}`);
   const safeClientName = escapeHtml(input.clientName);
   const safeInvoiceUrl = escapeHtml(invoiceUrl);
-  const safeAmount = escapeHtml(formatAmount(input.amount));
+  const safeAmount = escapeHtml(formatAmount(input.amount, currency));
   const safeDueDate = escapeHtml(formatDate(input.dueDate));
   const textBody = [
     `Hi ${input.clientName},`,
     '',
     'Your invoice is ready. A PDF copy is attached for your records.',
-    `Amount due: ${formatAmount(input.amount)}`,
+    `Amount due: ${formatAmount(input.amount, currency)}`,
     `Due date: ${formatDate(input.dueDate)}`,
     `View invoice online: ${invoiceUrl}`,
     '',

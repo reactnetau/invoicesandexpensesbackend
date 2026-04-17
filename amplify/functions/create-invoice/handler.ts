@@ -17,6 +17,34 @@ const USER_PROFILE_TABLE = env.userProfileTableName;
 const INVOICE_TABLE = env.invoiceTableName;
 const FREE_INVOICE_LIMIT = 5;
 
+async function countInvoicesCreatedSince(owner: string, startIso: string): Promise<number> {
+  let count = 0;
+  let lastEvaluatedKey: Record<string, unknown> | undefined;
+
+  do {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: INVOICE_TABLE,
+        IndexName: 'byOwner',
+        KeyConditionExpression: '#owner = :owner',
+        FilterExpression: '#createdAt >= :startOfMonth',
+        ExpressionAttributeNames: { '#owner': 'owner', '#createdAt': 'createdAt' },
+        ExpressionAttributeValues: {
+          ':owner': owner,
+          ':startOfMonth': startIso,
+        },
+        Select: 'COUNT',
+        ExclusiveStartKey: lastEvaluatedKey,
+      })
+    );
+
+    count += result.Count ?? 0;
+    lastEvaluatedKey = result.LastEvaluatedKey;
+  } while (lastEvaluatedKey);
+
+  return count;
+}
+
 interface Args {
   clientId?: string;
   clientName: string;
@@ -94,7 +122,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
     return { id: null, publicId: null, emailSent: null, emailError: null, error: 'User profile not found', errorCode: 'no_profile' };
   }
 
-  const isPro = profile.subscriptionStatus === 'active';
+  const isPro = profile.subscriptionStatus === 'active' || profile.isFoundingMember === true;
 
   // Enforce free-tier monthly invoice limit
   if (!isPro) {
@@ -102,22 +130,9 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
     startOfMonth.setDate(1);
     startOfMonth.setHours(0, 0, 0, 0);
 
-    const monthlyCount = await ddb.send(
-      new QueryCommand({
-        TableName: INVOICE_TABLE,
-        IndexName: 'byOwner',
-        KeyConditionExpression: '#owner = :owner',
-        FilterExpression: '#createdAt >= :startOfMonth',
-        ExpressionAttributeNames: { '#owner': 'owner', '#createdAt': 'createdAt' },
-        ExpressionAttributeValues: {
-          ':owner': sub,
-          ':startOfMonth': startOfMonth.toISOString(),
-        },
-        Select: 'COUNT',
-      })
-    );
+    const monthlyCount = await countInvoicesCreatedSince(sub, startOfMonth.toISOString());
 
-    if ((monthlyCount.Count ?? 0) >= FREE_INVOICE_LIMIT) {
+    if (monthlyCount >= FREE_INVOICE_LIMIT) {
       return {
         id: null,
         publicId: null,
@@ -179,6 +194,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
         publicId,
         status: 'unpaid',
         appUrl,
+        currency: profile.currency ?? 'AUD',
         payid,
         businessName: includeBusinessName ? (profile.businessName ?? null) : null,
         fullName: includeFullName ? (profile.fullName ?? null) : null,
@@ -195,6 +211,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
         publicId,
         pdfBuffer,
         appUrl,
+        currency: profile.currency ?? 'AUD',
         businessName: profile.businessName ?? null,
       });
 
