@@ -7,6 +7,7 @@ import { Effect, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 import { auth } from './auth/resource';
 import { data } from './data/resource';
+import { storage } from './storage/resource';
 import { createUserProfileFn } from './functions/create-user-profile/resource';
 import { createInvoiceFn } from './functions/create-invoice/resource';
 import { syncSubscriptionFn } from './functions/sync-subscription/resource';
@@ -23,6 +24,7 @@ import { payidFn } from './functions/payid/resource';
 const backend = defineBackend({
   auth,
   data,
+  storage,
   createUserProfileFn,
   createInvoiceFn,
   syncSubscriptionFn,
@@ -205,6 +207,14 @@ const sesSendPolicy = new PolicyStatement({
 
 backend.createInvoiceFn.resources.lambda.addToRolePolicy(sesSendPolicy);
 backend.invoiceEmailFn.resources.lambda.addToRolePolicy(sesSendPolicy);
+
+// ── Logo bucket access for PDF-generating Lambdas ────────────────────────────
+// Read-only access is sufficient — Lambdas never write to the logo bucket.
+const { bucket: logosBucket } = backend.storage.resources;
+logosBucket.grantRead(backend.createInvoiceFn.resources.lambda);
+logosBucket.grantRead(backend.invoiceEmailFn.resources.lambda);
+backend.createInvoiceFn.addEnvironment('LOGOS_BUCKET_NAME', logosBucket.bucketName);
+backend.invoiceEmailFn.addEnvironment('LOGOS_BUCKET_NAME', logosBucket.bucketName);
 
 backend.csvExportFn.addEnvironment('USER_PROFILE_TABLE_NAME', tableEnvironment.USER_PROFILE_TABLE_NAME);
 backend.csvExportFn.addEnvironment('INVOICE_TABLE_NAME', tableEnvironment.INVOICE_TABLE_NAME);

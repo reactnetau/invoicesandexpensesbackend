@@ -40,6 +40,7 @@ const schema = a
         phone: a.string(),
         address: a.string(),
         abn: a.string(),
+        companyLogoKey: a.string(),
       })
       .secondaryIndexes((index) => [
         index('stripeCustomerId').name('stripeCustomerId-index'),

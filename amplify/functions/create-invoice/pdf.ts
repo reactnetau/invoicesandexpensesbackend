@@ -15,6 +15,10 @@ export interface InvoicePdfInput {
   phone?: string | null;
   address?: string | null;
   abn?: string | null;
+  /** Raw image bytes for the company logo (PNG or JPEG). When provided the
+   *  logo is drawn in the right side of the header band.  If null/undefined
+   *  the header renders exactly as before. */
+  logoImageBytes?: Buffer | null;
 }
 
 function formatAmount(amount: number, currency = 'AUD'): string {
@@ -27,6 +31,23 @@ function formatDate(date: Date): string {
     month: 'long',
     day: 'numeric',
   });
+}
+
+/**
+ * Returns 'png' when the buffer starts with the PNG magic bytes, otherwise
+ * assumes JPEG.  We only support PNG and JPEG/JPG uploads from the client.
+ */
+function detectImageFormat(bytes: Buffer): 'png' | 'jpg' {
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
+    return 'png';
+  }
+  return 'jpg';
 }
 
 export async function generateInvoicePdf(input: InvoicePdfInput): Promise<Buffer> {
@@ -63,22 +84,59 @@ export async function generateInvoicePdf(input: InvoicePdfInput): Promise<Buffer
     color: rgb(0.2, 0.3, 0.45),
   });
 
-  // Sender details top-right
-  const senderDetails: string[] = [];
-  if (input.fullName && input.businessName) senderDetails.push(input.fullName);
-  if (input.phone) senderDetails.push(input.phone);
-  if (input.abn) senderDetails.push(`ABN: ${input.abn}`);
-  let detailY = height - 56;
-  for (const line of senderDetails) {
-    const lineWidth = font.widthOfTextAtSize(line, 10);
-    page.drawText(line, {
-      x: width - 48 - lineWidth,
-      y: detailY,
-      size: 10,
-      font,
-      color: rgb(0.39, 0.45, 0.55),
-    });
-    detailY -= 16;
+  // ── Logo OR sender details in the right side of the header ───────────────
+  // When a logo is present it occupies the top-right of the header band;
+  // the condensed sender-detail lines are skipped to avoid overlap.
+  // When there is no logo, sender details render exactly as before.
+  const hasLogo = !!(input.logoImageBytes && input.logoImageBytes.length > 0);
+
+  if (hasLogo) {
+    try {
+      const fmt = detectImageFormat(input.logoImageBytes!);
+      const logoImage =
+        fmt === 'png'
+          ? await pdfDoc.embedPng(input.logoImageBytes!)
+          : await pdfDoc.embedJpg(input.logoImageBytes!);
+
+      const maxW = 120;
+      const maxH = 72;
+      const dims = logoImage.scale(1);
+      const scale = Math.min(maxW / dims.width, maxH / dims.height, 1);
+      const scaledW = Math.round(dims.width * scale);
+      const scaledH = Math.round(dims.height * scale);
+
+      // Vertically center inside the 140-pt header band
+      const logoX = width - 48 - scaledW;
+      const logoY = height - 140 + Math.round((140 - scaledH) / 2);
+
+      page.drawImage(logoImage, {
+        x: logoX,
+        y: logoY,
+        width: scaledW,
+        height: scaledH,
+      });
+    } catch {
+      // Logo embed failed — continue generating the PDF without it.
+      console.warn('[pdf] Logo embed failed, continuing without logo.');
+    }
+  } else {
+    // Sender details top-right (existing behaviour)
+    const senderDetails: string[] = [];
+    if (input.fullName && input.businessName) senderDetails.push(input.fullName);
+    if (input.phone) senderDetails.push(input.phone);
+    if (input.abn) senderDetails.push(`ABN: ${input.abn}`);
+    let detailY = height - 56;
+    for (const line of senderDetails) {
+      const lineWidth = font.widthOfTextAtSize(line, 10);
+      page.drawText(line, {
+        x: width - 48 - lineWidth,
+        y: detailY,
+        size: 10,
+        font,
+        color: rgb(0.39, 0.45, 0.55),
+      });
+      detailY -= 16;
+    }
   }
 
   page.drawText(`Amount due: ${formatAmount(input.amount, input.currency ?? 'AUD')}`, {

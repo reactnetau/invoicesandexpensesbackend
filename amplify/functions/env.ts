@@ -46,4 +46,7 @@ export const env = {
   get userProfileTableName() {
     return requiredEnv('USER_PROFILE_TABLE_NAME');
   },
+  get logosBucketName() {
+    return optionalEnv('LOGOS_BUCKET_NAME');
+  },
 };

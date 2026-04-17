@@ -4,6 +4,7 @@ import { DynamoDBDocumentClient, GetCommand, QueryCommand } from '@aws-sdk/lib-d
 import { generateInvoicePdf } from '../create-invoice/pdf';
 import { sendInvoiceEmailSES } from '../create-invoice/ses';
 import { decrypt } from '../create-invoice/crypto';
+import { fetchLogoFromS3 } from '../create-invoice/logo';
 import { env } from '../env';
 
 const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
@@ -68,6 +69,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
   }
 
   const appUrl = env.appUrl;
+  const logoImageBytes = await fetchLogoFromS3(profile.companyLogoKey, env.logosBucketName);
 
   try {
     const pdfBuffer = await generateInvoicePdf({
@@ -85,6 +87,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
       phone: includePhone ? (profile.phone ?? null) : null,
       address: includeAddress ? (profile.address ?? null) : null,
       abn: includeAbn ? (profile.abn ?? null) : null,
+      logoImageBytes,
     });
 
     await sendInvoiceEmailSES({

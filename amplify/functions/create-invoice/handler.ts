@@ -9,6 +9,7 @@ import { randomUUID } from 'crypto';
 import { generateInvoicePdf } from './pdf';
 import { sendInvoiceEmailSES } from './ses';
 import { decrypt } from './crypto';
+import { fetchLogoFromS3 } from './logo';
 import { env } from '../env';
 import { normalizeEmailAddress, sanitizeHeaderValue } from '../security';
 
@@ -186,6 +187,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
       }
 
       const appUrl = env.appUrl;
+      const logoImageBytes = await fetchLogoFromS3(profile.companyLogoKey, env.logosBucketName);
       const pdfBuffer = await generateInvoicePdf({
         clientName: safeClientName,
         clientEmail: safeClientEmail,
@@ -201,6 +203,7 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
         phone: includePhone ? (profile.phone ?? null) : null,
         address: includeAddress ? (profile.address ?? null) : null,
         abn: includeAbn ? (profile.abn ?? null) : null,
+        logoImageBytes,
       });
 
       await sendInvoiceEmailSES({
