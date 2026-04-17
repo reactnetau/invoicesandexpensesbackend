@@ -56,7 +56,6 @@ export async function generateInvoicePdf(input: InvoicePdfInput): Promise<Buffer
   const { width, height } = page.getSize();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const invoiceUrl = `${input.appUrl}/invoice/${input.publicId}`;
 
   // Header band
   page.drawRectangle({
@@ -124,6 +123,7 @@ export async function generateInvoicePdf(input: InvoicePdfInput): Promise<Buffer
     const senderDetails: string[] = [];
     if (input.fullName && input.businessName) senderDetails.push(input.fullName);
     if (input.phone) senderDetails.push(input.phone);
+    if (input.address) senderDetails.push(input.address);
     if (input.abn) senderDetails.push(`ABN: ${input.abn}`);
     let detailY = height - 56;
     for (const line of senderDetails) {
@@ -152,7 +152,6 @@ export async function generateInvoicePdf(input: InvoicePdfInput): Promise<Buffer
     ['Client email', input.clientEmail || 'No email on file'],
     ['Due date', formatDate(input.dueDate)],
     ['Status', input.status],
-    ['Public link', invoiceUrl],
   ];
 
   let y = height - 250;
@@ -169,12 +168,27 @@ export async function generateInvoicePdf(input: InvoicePdfInput): Promise<Buffer
     color: rgb(0.88, 0.91, 0.95),
   });
 
-  page.drawText('Share the public link above to let your client view the invoice online.', {
-    x: 48, y: y - 24, size: 11, font, color: rgb(0.39, 0.45, 0.55), maxWidth: width - 96,
-  });
+  // When a logo occupies the header right-side, render sender fields here instead
+  let afterDividerY = y - 20;
+  if (hasLogo) {
+    const fromDetails: string[] = [];
+    if (input.fullName && input.businessName) fromDetails.push(input.fullName);
+    if (input.phone) fromDetails.push(input.phone);
+    if (input.address) fromDetails.push(input.address);
+    if (input.abn) fromDetails.push(`ABN: ${input.abn}`);
+    if (fromDetails.length > 0) {
+      page.drawText('From', { x: 48, y: afterDividerY, size: 11, font: boldFont, color: rgb(0.39, 0.45, 0.55) });
+      afterDividerY -= 18;
+      for (const line of fromDetails) {
+        page.drawText(line, { x: 48, y: afterDividerY, size: 10, font, color: rgb(0.1, 0.14, 0.2), maxWidth: width / 2 });
+        afterDividerY -= 16;
+      }
+      afterDividerY -= 8;
+    }
+  }
 
   // Payment details box
-  const payY = y - 80;
+  const payY = afterDividerY - 4;
   page.drawRectangle({
     x: 48, y: payY - 110, width: width - 96, height: 120,
     color: rgb(0.96, 0.98, 1),

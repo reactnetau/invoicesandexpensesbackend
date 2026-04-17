@@ -41,11 +41,9 @@ export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<voi
   const fromEmail = normalizeEmailAddress(env.sesFromEmail);
   const toEmail = normalizeEmailAddress(input.to);
   const senderName = sanitizeHeaderValue(input.businessName, 'Invoices & Expenses');
-  const invoiceUrl = `${input.appUrl}/invoice/${input.publicId}`;
   const currency = input.currency ?? 'AUD';
   const subject = sanitizeHeaderValue(`Invoice from ${senderName} - ${formatAmount(input.amount, currency)}`);
   const safeClientName = escapeHtml(input.clientName);
-  const safeInvoiceUrl = escapeHtml(invoiceUrl);
   const safeAmount = escapeHtml(formatAmount(input.amount, currency));
   const safeDueDate = escapeHtml(formatDate(input.dueDate));
   const textBody = [
@@ -54,7 +52,6 @@ export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<voi
     'Your invoice is ready. A PDF copy is attached for your records.',
     `Amount due: ${formatAmount(input.amount, currency)}`,
     `Due date: ${formatDate(input.dueDate)}`,
-    `View invoice online: ${invoiceUrl}`,
     '',
     'If you have any questions, just reply to this email.',
   ].join('\n');
@@ -64,11 +61,6 @@ export async function sendInvoiceEmailSES(input: InvoiceEmailInput): Promise<voi
 <p>Your invoice is ready. A PDF copy is attached for your records.</p>
 <p><strong>Amount due:</strong> ${safeAmount}</p>
 <p><strong>Due date:</strong> ${safeDueDate}</p>
-<p>
-  <a href="${safeInvoiceUrl}" style="display:inline-block;padding:12px 20px;background-color:#2563eb;color:#ffffff;font-weight:bold;text-decoration:none;border-radius:8px;">
-    View invoice online
-  </a>
-</p>
 <p>If you have any questions, just reply to this email.</p>
   `.trim();
 
