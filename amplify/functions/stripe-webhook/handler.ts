@@ -54,9 +54,12 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
         const ownerSub = session.metadata?.ownerSub;
         if (!ownerSub) break;
 
+        // Mark provider as stripe so sync-subscription knows Stripe is the
+        // active provider and won't overwrite this when RevenueCat reports inactive.
         await updateProfileByOwner(ownerSub, {
           stripeCustomerId: session.customer as string,
           subscriptionStatus: 'active',
+          subscriptionProvider: 'stripe',
         });
         break;
       }
@@ -69,21 +72,29 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
           ? new Date(inv.period_end * 1000).toISOString()
           : null;
 
-        // Never upgrade founding members via webhook (they're already permanent Pro)
-        await updateProfileByStripeCustomerId(inv.customer as string, {
-          subscriptionStatus: 'active',
-          ...(periodEnd ? { subscriptionEndDate: periodEnd } : {}),
-        }, /* skipFoundingMembers */ true);
+        await updateProfileByStripeCustomerId(
+          inv.customer as string,
+          {
+            subscriptionStatus: 'active',
+            subscriptionProvider: 'stripe',
+            ...(periodEnd ? { subscriptionEndDate: periodEnd } : {}),
+          },
+          (profile) => !profile.isFoundingMember,
+        );
         break;
       }
 
       case 'customer.subscription.deleted': {
         const sub = stripeEvent.data.object as Stripe.Subscription;
 
-        // Never deactivate founding members
-        await updateProfileByStripeCustomerId(sub.customer as string, {
-          subscriptionStatus: 'inactive',
-        }, /* skipFoundingMembers */ true);
+        // Only deactivate if Stripe is currently the active provider. If the
+        // user has a live RevenueCat entitlement the provider will be 'revenuecat'
+        // and Stripe expiry must not override it.
+        await updateProfileByStripeCustomerId(
+          sub.customer as string,
+          { subscriptionStatus: 'inactive', subscriptionProvider: 'stripe' },
+          (profile) => !profile.isFoundingMember && profile.subscriptionProvider !== 'revenuecat',
+        );
         break;
       }
     }
@@ -119,7 +130,7 @@ async function updateProfileByOwner(
 async function updateProfileByStripeCustomerId(
   customerId: string,
   updates: Record<string, unknown>,
-  skipFoundingMembers: boolean
+  guard: (profile: Record<string, unknown>) => boolean,
 ) {
   const result = await ddb.send(
     new QueryCommand({
@@ -133,7 +144,7 @@ async function updateProfileByStripeCustomerId(
 
   const profile = result.Items?.[0];
   if (!profile) return;
-  if (skipFoundingMembers && profile.isFoundingMember) return;
+  if (!guard(profile)) return;
 
   await applyUpdates(profile.id, updates);
 }

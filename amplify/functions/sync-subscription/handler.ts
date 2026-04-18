@@ -62,11 +62,15 @@ export const handler: AppSyncResolverHandler<Args, Result> = async (event) => {
 
   const isFoundingMember = profile.isFoundingMember === true;
   const hasActiveRevenueCatEntitlement = event.arguments.entitlementActive === true;
+  // Protect an active Stripe subscription from being overwritten by a RevenueCat
+  // inactive report. Match on provider === 'stripe' OR, for legacy records where
+  // the provider was never set by the webhook, fall back to stripeCustomerId present.
   const hasActiveStripeSubscription =
     !isFoundingMember &&
     !hasActiveRevenueCatEntitlement &&
     profile.subscriptionStatus === 'active' &&
-    profile.subscriptionProvider !== 'revenuecat' &&
+    (profile.subscriptionProvider === 'stripe' ||
+      (!profile.subscriptionProvider && !!profile.stripeCustomerId)) &&
     !!profile.stripeCustomerId;
 
   if (hasActiveStripeSubscription) {
