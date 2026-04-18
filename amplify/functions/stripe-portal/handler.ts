@@ -9,6 +9,10 @@ const USER_PROFILE_TABLE = env.userProfileTableName;
 
 type Result = { url: string | null; error: string | null };
 
+function appPath(appUrl: string, path: string) {
+  return `${appUrl}${path}`;
+}
+
 export const handler: AppSyncResolverHandler<Record<string, never>, Result> = async (event) => {
   const sub = (event.identity as any)?.sub as string | undefined;
   if (!sub) return { url: null, error: 'Unauthorized' };
@@ -38,7 +42,7 @@ export const handler: AppSyncResolverHandler<Record<string, never>, Result> = as
     const stripe = new Stripe(stripeKey);
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: profile.stripeCustomerId,
-      return_url: `${appUrl}/account`,
+      return_url: appPath(appUrl, '/account'),
     });
 
     return { url: portalSession.url, error: null };

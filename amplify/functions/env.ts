@@ -1,4 +1,11 @@
 const DEFAULT_APP_URL = 'https://invoicesandexpenses.com';
+
+function normalizeUrl(url: string): string {
+  const trimmedUrl = url.trim();
+  const urlWithProtocol = /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+  return urlWithProtocol.replace(/\/+$/, '');
+}
+
 function requiredEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set`);
@@ -14,7 +21,7 @@ export const env = {
     return optionalEnv('ANTHROPIC_API_KEY');
   },
   get appUrl() {
-    return process.env.APP_URL ?? DEFAULT_APP_URL;
+    return normalizeUrl(optionalEnv('APP_URL')?.trim() || DEFAULT_APP_URL);
   },
   get awsRegion() {
     return process.env.AWS_REGION;

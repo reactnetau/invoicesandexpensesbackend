@@ -9,6 +9,10 @@ const USER_PROFILE_TABLE = env.userProfileTableName;
 
 type Result = { url: string | null; error: string | null };
 
+function appPath(appUrl: string, path: string) {
+  return `${appUrl}${path}`;
+}
+
 export const handler: AppSyncResolverHandler<Record<string, never>, Result> = async (event) => {
   const sub = (event.identity as any)?.sub as string | undefined;
   if (!sub) return { url: null, error: 'Unauthorized' };
@@ -46,8 +50,8 @@ export const handler: AppSyncResolverHandler<Record<string, never>, Result> = as
       line_items: [{ price: priceId, quantity: 1 }],
       metadata: { userId: profile.id, ownerSub: sub },
       // Deep link back to the app after checkout
-      success_url: `${appUrl}/stripe-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/stripe-cancel`,
+      success_url: appPath(appUrl, '/stripe-success?session_id={CHECKOUT_SESSION_ID}'),
+      cancel_url: appPath(appUrl, '/stripe-cancel'),
     });
 
     return { url: session.url, error: null };
