@@ -99,6 +99,20 @@ const schema = a
         allow.owner(),
       ]),
 
+    /**
+     * ActivityEvent records user actions (invoice created, client added, etc.)
+     * for the Snapshot feed. Owner-scoped — users only see their own events.
+     */
+    ActivityEvent: a
+      .model({
+        type: a.string().required(),
+        title: a.string().required(),
+        description: a.string(),
+        entityType: a.string(),
+        entityId: a.string(),
+      })
+      .authorization((allow) => [allow.owner()]),
+
     // ── Custom mutations / queries ──────────────────────────────────────────
 
     /**
