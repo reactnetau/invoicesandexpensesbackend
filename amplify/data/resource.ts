@@ -11,6 +11,7 @@ import { csvExportFn } from '../functions/csv-export/resource';
 import { aiSummaryFn } from '../functions/ai-summary/resource';
 import { publicInvoiceFn } from '../functions/public-invoice/resource';
 import { payidFn } from '../functions/payid/resource';
+import { foundingMembersFn } from '../functions/founding-members/resource';
 
 const schema = a
   .schema({
@@ -335,6 +336,23 @@ const schema = a
       )
       .handler(a.handler.function(publicInvoiceFn))
       .authorization((allow) => [allow.publicApiKey()]),
+
+    /**
+     * Returns the public founding member availability count for the homepage.
+     */
+    getFoundingMemberStatus: a
+      .query()
+      .returns(
+        a.customType({
+          enabled: a.boolean(),
+          claimed: a.integer(),
+          limit: a.integer(),
+          available: a.integer(),
+          error: a.string(),
+        })
+      )
+      .handler(a.handler.function(foundingMembersFn))
+      .authorization((allow) => [allow.publicApiKey()]),
   })
   // Grant function resources access to data models they need
   .authorization((allow) => [
@@ -349,6 +367,7 @@ const schema = a
     allow.resource(aiSummaryFn),
     allow.resource(publicInvoiceFn),
     allow.resource(payidFn),
+    allow.resource(foundingMembersFn),
   ]);
 
 export type Schema = ClientSchema<typeof schema>;

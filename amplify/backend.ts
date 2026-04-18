@@ -20,6 +20,7 @@ import { csvExportFn } from './functions/csv-export/resource';
 import { aiSummaryFn } from './functions/ai-summary/resource';
 import { publicInvoiceFn } from './functions/public-invoice/resource';
 import { payidFn } from './functions/payid/resource';
+import { foundingMembersFn } from './functions/founding-members/resource';
 
 const backend = defineBackend({
   auth,
@@ -37,6 +38,7 @@ const backend = defineBackend({
   aiSummaryFn,
   publicInvoiceFn,
   payidFn,
+  foundingMembersFn,
 });
 
 const userPool = backend.auth.resources.userPool.node.defaultChild as CfnUserPool;
@@ -126,6 +128,7 @@ tables.UserProfile.grantReadData(backend.csvExportFn.resources.lambda);
 tables.UserProfile.grantReadData(backend.aiSummaryFn.resources.lambda);
 tables.UserProfile.grantReadData(backend.publicInvoiceFn.resources.lambda);
 tables.UserProfile.grantReadWriteData(backend.payidFn.resources.lambda);
+tables.UserProfile.grantReadData(backend.foundingMembersFn.resources.lambda);
 
 tables.Invoice.grantReadWriteData(backend.createInvoiceFn.resources.lambda);
 tables.Invoice.grantReadData(backend.invoiceEmailFn.resources.lambda);
@@ -230,5 +233,8 @@ backend.publicInvoiceFn.addEnvironment('INVOICE_TABLE_NAME', tableEnvironment.IN
 
 backend.payidFn.addEnvironment('USER_PROFILE_TABLE_NAME', tableEnvironment.USER_PROFILE_TABLE_NAME);
 backend.payidFn.addEnvironment('ENCRYPTION_KEY', secret('ENCRYPTION_KEY'));
+
+backend.foundingMembersFn.addEnvironment('USER_PROFILE_TABLE_NAME', tableEnvironment.USER_PROFILE_TABLE_NAME);
+backend.foundingMembersFn.addEnvironment('FOUNDING_MEMBERS', secret('FOUNDING_MEMBERS'));
 
 export { backend };
