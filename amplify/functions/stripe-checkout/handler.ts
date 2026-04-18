@@ -8,18 +8,42 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 const USER_PROFILE_TABLE = env.userProfileTableName;
 
 type Result = { url: string | null; error: string | null };
+type Arguments = { returnUrl?: string | null };
 
 function appPath(appUrl: string, path: string) {
   return `${appUrl}${path}`;
 }
 
-export const handler: AppSyncResolverHandler<Record<string, never>, Result> = async (event) => {
+function resolveAppUrl(returnUrl: string | null | undefined) {
+  if (!returnUrl) return env.appUrl;
+
+  try {
+    const fallback = new URL(env.appUrl);
+    const requested = new URL(returnUrl);
+    const hostname = requested.hostname.toLowerCase();
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    const isAmplifyApp = hostname.endsWith('.amplifyapp.com');
+    const isPrimaryDomain = hostname === 'invoicesandexpenses.com' || hostname.endsWith('.invoicesandexpenses.com');
+    const matchesConfiguredApp = requested.origin === fallback.origin;
+    const usesAllowedProtocol = requested.protocol === 'https:' || (isLocalhost && requested.protocol === 'http:');
+
+    if (usesAllowedProtocol && (matchesConfiguredApp || isAmplifyApp || isPrimaryDomain || isLocalhost)) {
+      return requested.origin;
+    }
+  } catch {
+    // Fall back to the configured app URL if the client passed a malformed URL.
+  }
+
+  return env.appUrl;
+}
+
+export const handler: AppSyncResolverHandler<Arguments, Result> = async (event) => {
   const sub = (event.identity as any)?.sub as string | undefined;
   if (!sub) return { url: null, error: 'Unauthorized' };
 
   const stripeKey = env.stripeSecretKey;
   const priceId = env.stripePriceId;
-  const appUrl = env.appUrl;
+  const appUrl = resolveAppUrl(event.arguments.returnUrl);
 
   if (!stripeKey || !priceId) {
     return { url: null, error: 'Stripe not configured' };

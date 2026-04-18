@@ -185,6 +185,9 @@ const schema = a
      */
     stripeCreateCheckout: a
       .query()
+      .arguments({
+        returnUrl: a.string(),
+      })
       .returns(a.customType({ url: a.string(), error: a.string() }))
       .handler(a.handler.function(stripeCheckoutFn))
       .authorization((allow) => [allow.authenticated()]),
@@ -194,6 +197,9 @@ const schema = a
      */
     stripeCreatePortal: a
       .query()
+      .arguments({
+        returnUrl: a.string(),
+      })
       .returns(a.customType({ url: a.string(), error: a.string() }))
       .handler(a.handler.function(stripePortalFn))
       .authorization((allow) => [allow.authenticated()]),
