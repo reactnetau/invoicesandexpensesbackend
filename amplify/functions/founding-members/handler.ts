@@ -37,7 +37,7 @@ export const handler: AppSyncResolverHandler<Record<string, never>, Result> = as
     } while (lastKey);
 
     const limit = FOUNDING_MEMBER_LIMIT;
-    const enabled = env.foundingMembers === 'true' && claimed < limit;
+    const enabled = claimed < limit;
 
     return {
       enabled,
